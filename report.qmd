@@ -1,0 +1,372 @@
+---
+title: "statistiques"
+author: "Clément Rieux"
+toc: true
+toc-depth: 3
+format:
+  html:
+    html-math-method: katex
+    responsive: true
+    self-contained: true
+    output-file: "index"
+execute:
+  warning: false
+  echo: false
+  freeze: auto
+---
+
+<script>
+  // Fonction pour détecter la taille de l'écran et ajuster la largeur du graphique
+  function adjustHighchartsWidth() {
+    var chartContainer = document.getElementById("mon-graphique"); // Remplacez "votre-container-de-graphique" par l'ID de votre conteneur de graphique
+    var windowWidth = window.innerWidth;
+
+    if (windowWidth <= 767) {
+      // Largeur inférieure ou égale à 767 pixels, probablement un appareil mobile
+      chartContainer.style.width = "100%"; // Ajuster la largeur du conteneur du graphique à 100%
+    } else {
+      // Largeur supérieure à 767 pixels, probablement un ordinateur
+      chartContainer.style.width = "100%"; // Ajuster la largeur du conteneur du graphique à 600 pixels (ou à la valeur souhaitée pour les ordinateurs)
+    }
+  }
+
+  // Appeler la fonction d'ajustement de la largeur lors du chargement de la page et du redimensionnement de la fenêtre
+  document.addEventListener("DOMContentLoaded", adjustHighchartsWidth);
+  window.addEventListener("resize", adjustHighchartsWidth);
+</script>
+
+# Statistiques de musculation
+
+```{r}
+library(googlesheets4)
+library(lubridate)
+library(here)
+library(reactable)
+library(ggplot2)
+library(rstatix)  
+library(ggpubr)
+# library(gtExtras)
+
+gs4_deauth()
+
+source(here('functions', 'import_google_sheet.R'))
+source(here('functions', 'gym.R'))
+
+#Read google sheets data into R
+df <- traiter_google_sheet('https://docs.google.com/spreadsheets/d/1t7HI7_cj0mcXJ_FD4tC8D1PVJFXoHDsaM9NSqX5sk1s/edit?usp=sharing')
+
+# aggrégation par jour
+data_date = df %>%
+  group_by(Date) %>%
+  summarise(exercices = n_distinct(Exercice, na.rm = T),
+            series = n(),
+            repetitions = sum(Répétitions, na.rm = T),
+            poids = sum(Poids, na.rm = T)) %>%
+  ungroup() %>%
+  pivot_longer(!c(Date, poids), names_to = 'gr', values_to = 'value') %>% 
+  mutate(Date = as.Date(Date),
+         week = week(Date),
+         semaine = weekdays(Date),
+         mois = months(Date),
+         annee = year(Date))
+
+```
+
+
+## Nombre d'exercices 
+
+::: {.panel-tabset}
+
+### Mois
+
+```{r}
+
+data_date %>% 
+  filter(gr == 'exercices',
+         Date > today()-365) %>% 
+  group_by(mois, annee) %>% 
+  summarise(Exercices = sum(value)) %>% 
+  ungroup() %>% 
+  mutate(Date = as.Date(paste(annee, mois, "01", sep = "-"), format = "%Y-%b-%d")) %>%
+  arrange(Date) %>% 
+ggplot(aes(x = Date, y = Exercices)) +
+  geom_bar(stat = "identity", fill = "#9c0c29") +
+  labs(title = "Évolution des exercices par mois",
+       x = "Date",
+       y = "Nombre d'exercices") +
+  theme_minimal() +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "1 month") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+### 10 semaines
+
+```{r}
+
+data_date %>% 
+  filter(gr == 'exercices',
+         Date > today()-weeks(10)) %>%
+  mutate(semaine = floor_date(Date, "week")) %>%
+  group_by(semaine) %>% 
+  summarise(Exercices = sum(value)) %>% 
+  ungroup() %>% 
+ggplot(aes(x = semaine, y = Exercices)) +
+  geom_bar(stat = "identity", fill = "#9c0c29") +
+  labs(title = "Évolution des exercices 10 dernières semaines",
+       x = "Semaine",
+       y = "Nombre d'exercices") +
+  theme_minimal() +
+  scale_x_date(date_labels = "%d-%B", date_breaks = "1 week") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+:::
+
+## Nombre de séries 
+
+::: {.panel-tabset}
+
+### Mois
+
+```{r}
+
+data_date %>% 
+  filter(gr == 'series',
+         Date > today()-365) %>% 
+  group_by(mois, annee) %>% 
+  summarise(Exercices = sum(value)) %>% 
+  ungroup() %>% 
+  mutate(Date = as.Date(paste(annee, mois, "01", sep = "-"), format = "%Y-%b-%d")) %>%
+  arrange(Date) %>% 
+ggplot(aes(x = Date, y = Exercices)) +
+  geom_bar(stat = "identity", fill = "#0d51b8") +
+  labs(title = "Évolution des series par mois",
+       x = "Date",
+       y = "Nombre de series") +
+  theme_minimal() +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "1 month") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+### 10 semaines
+
+```{r}
+
+data_date %>% 
+  filter(gr == 'series',
+         Date > today()-weeks(10)) %>%
+  mutate(semaine = floor_date(Date, "week")) %>%
+  group_by(semaine) %>% 
+  summarise(Exercices = sum(value)) %>% 
+  ungroup() %>% 
+ggplot(aes(x = semaine, y = Exercices)) +
+  geom_bar(stat = "identity", fill = "#0d51b8") +
+  labs(title = "Évolution des series 10 dernières semaines",
+       x = "Semaine",
+       y = "Nombre d'series") +
+  theme_minimal() +
+  scale_x_date(date_labels = "%d-%B", date_breaks = "1 week") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+:::
+
+## Nombre de répétitions 
+
+::: {.panel-tabset}
+
+### Mois
+
+```{r}
+
+data_date %>% 
+  filter(gr == 'repetitions',
+         Date > today()-365) %>% 
+  group_by(mois, annee) %>% 
+  summarise(Exercices = sum(value)) %>% 
+  ungroup() %>% 
+  mutate(Date = as.Date(paste(annee, mois, "01", sep = "-"), format = "%Y-%b-%d")) %>%
+  arrange(Date) %>% 
+ggplot(aes(x = Date, y = Exercices)) +
+  geom_bar(stat = "identity", fill = "#266608") +
+  labs(title = "Évolution des repetitions par mois",
+       x = "Date",
+       y = "Nombre d'repetitions") +
+  theme_minimal() +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "1 month") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+### 10 semaines
+
+```{r}
+
+data_date %>% 
+  filter(gr == 'repetitions',
+         Date > today()-weeks(10)) %>%
+  mutate(semaine = floor_date(Date, "week")) %>%
+  group_by(semaine) %>% 
+  summarise(Exercices = sum(value)) %>% 
+  ungroup() %>% 
+ggplot(aes(x = semaine, y = Exercices)) +
+  geom_bar(stat = "identity", fill = "#266608") +
+  labs(title = "Évolution des repetitions 10 dernières semaines",
+       x = "Semaine",
+       y = "Nombre d'repetitions") +
+  theme_minimal() +
+  scale_x_date(date_labels = "%d-%B", date_breaks = "1 week") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+::: 
+
+## Tableau des max (10 derniès semaines)
+
+```{r}
+df %>%
+  filter(Date > today()-weeks(10)) %>% 
+  rowwise() %>%
+  mutate(RM1_max = obtenir_max_1RM(Poids, Répétitions),
+         RM1_min = obtenir_min_1RM(Poids, Répétitions)) %>% 
+  ungroup() %>% 
+  group_by(Exercice) %>%
+  summarise(RM1_max = max(RM1_max, na.rm = T),
+            RM1_min = max(RM1_min, na.rm = T)) %>%
+  ungroup() %>%
+  mutate('RM' = paste0("[", RM1_min, "/", RM1_max, "]"),
+         '90%' = paste0("[", RM1_min*0.9, "/", RM1_max*0.9, "]"),
+         '80%' = paste0("[", RM1_min*0.8, "/", RM1_max*0.8, "]"),
+         '70%' = paste0("[", RM1_min*0.7, "/", RM1_max*0.7, "]"),
+         '60%' = paste0("[", RM1_min*0.6, "/", RM1_max*0.6, "]"),
+         '50%' = paste0("[", RM1_min*0.5, "/", RM1_max*0.5, "]"),
+         '40%' = paste0("[", RM1_min*0.4, "/", RM1_max*0.4, "]"),
+         '30%' = paste0("[", RM1_min*0.3, "/", RM1_max*0.3, "]"),
+         '20%' = paste0("[", RM1_min*0.2, "/", RM1_max*0.2, "]")
+      ) %>% 
+  select(-c(RM1_max, RM1_min)) %>% 
+  
+  reactable(minRows = 6,
+          defaultPageSize = 6,
+          striped = TRUE,
+          showPageInfo = FALSE,
+          paginationType = "simple",
+          rownames = FALSE,
+           columnGroups = NULL,
+           columns = list(
+             Exercice = colDef(filterable = TRUE, 
+                               sticky = "left", 
+                               style =  list(backgroundColor = "#80bcd8")),
+             RM = colDef(style =  list(backgroundColor = "#5CD1D1"),
+                          html = TRUE,
+                          header = JS('function(column) {
+                                      return column.name + `<div style="color: #737373">kg</div>`
+                                      }'))
+             )
+          )
+
+
+```
+
+
+## Statistiques par exercice
+
+```{r, echo = FALSE, results='asis'}
+
+data_last10 = df %>% 
+  rowwise() %>%
+  mutate(RM1_max = obtenir_max_1RM(Poids, Répétitions),
+         last5_week = ifelse(Date > today() - weeks(5),
+                             'Cycle en cours',
+                             'Cycle précédent')) %>% 
+  ungroup() 
+
+exercices = sort(unique(data_last10$Exercice))
+
+for (i in exercices) {
+  
+   cat("\n")
+  
+  cat("###", i , "\n")
+  
+  cat("\n")
+  
+  cat("::: {.panel-tabset}")
+  
+  cat("\n")
+  
+  data_ex = data_last10 %>% 
+    filter(Exercice == i)
+  
+  cat("#### Graphique \n")
+  
+   cat("\n")
+  
+  # par mois
+plot = data_ex %>% 
+  filter(Date > today() - years(1))  %>% 
+  mutate(Date = as.Date(paste(annee, mois, "01", sep = "-"), format = "%Y-%b-%d")) %>% 
+  ggplot(aes(x = factor(Date), y = RM1_max)) +
+  geom_boxplot() +
+  labs(title = "Évolution des répétitions par mois",
+       x = "Date",
+       y = "1RM") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(plot)
+
+cat("\n")
+cat("\n\n\n")
+
+cat("#### Test stat \n")
+  
+cat("\n")
+
+  
+data_ex = data_ex %>% 
+  filter(Date > today() - weeks(10))  
+
+stat.test <- NULL
+    
+# Vérifier si le test génère une erreur
+tryCatch({
+  stat.test <- data_ex %>% 
+    t_test(RM1_max ~ last5_week, paired = FALSE, alternative = "greater")
+}, error = function(e) {
+  cat("Pas assez d'historique pour faire un test", "\n")
+  stat.test <- NULL
+})
+  
+
+# Si le test ne génère pas d'erreur, créer le graphique p
+if (!is.null(stat.test)) {
+  p <- ggboxplot(
+    data_ex, x = "last5_week", y = "RM1_max", 
+    color = "last5_week", palette = "jco"
+  ) +
+    labs(title = "Comparaison de 1RM",
+         x = "Cycle",
+         y = "1RM") 
+  
+  p = p + stat_pvalue_manual(stat.test, label = "T-test, p = {p}", 
+                          y.position = unique(max(data_ex$RM1_max)))
+  
+  print(p)
+}
+   
+cat("\n")
+  
+cat(":::")
+  
+}
+
+
+```
+
+
