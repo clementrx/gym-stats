@@ -1,0 +1,43 @@
+name: MAJ du reporting
+on:
+ schedule: 
+   - cron: '15 11 * * *'
+    
+jobs:
+  autoscrape:
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      - uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-pandoc@v2
+      - uses: quarto-dev/quarto-actions/setup@v2
+     
+      - name: Install packages
+        run: |
+
+          R -e 'install.packages("quarto")'
+          R -e 'install.packages("dplyr")'
+          R -e 'install.packages("tidyr")'
+          R -e 'install.packages("googlesheets4")'
+          R -e 'install.packages("igraph")'
+          R -e 'install.packages("here")'
+          R -e 'install.packages("reactable")'
+          R -e 'install.packages("sparkline")'
+          R -e 'install.packages("remotes")'
+          R -e 'install.packages("lubridate")'
+          R -e 'install.packages("rstatix")'
+    
+      - name: Script
+        run: Rscript main.R
+        
+      - name: Commit files
+        run: |
+          git config --local user.name github-actions
+          git config --local user.email "actions@github.com"
+          git add index.html
+          git commit -am "commit on $(date)"
+          git push origin master
+        env:
+          REPO_KEY: ${{secrets.GITHUB_TOKEN}}
+          username: github-actions
