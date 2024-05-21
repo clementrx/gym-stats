@@ -1,7 +1,7 @@
 name: MAJ du reporting
 on:
  schedule: 
-   - cron: '15 11 * * *'
+   - cron: '25 12 * * *'
     
 jobs:
   autoscrape:
