@@ -1,7 +1,7 @@
 name: MAJ du reporting
 on:
  schedule: 
-   - cron: '40 13 * * *'
+   - cron: '00 15 * * *'
     
 jobs:
   autoscrape:
@@ -28,6 +28,8 @@ jobs:
           R -e 'install.packages("remotes")'
           R -e 'install.packages("lubridate")'
           R -e 'install.packages("rstatix")'
+          R -e 'install.packages("ggpubr")'
+          
     
       - name: Script
         run: Rscript main.R
